@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-06-27
+// @version      2024-06-28
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -9,6 +9,9 @@
 // @match        https://chiikawamarket.jp/products/*
 // @match        https://chiikawamarket.jp/collections/*/products/*
 // @match        https://chiikawamarket.jp/cart
+// @match        https://nagano-market.jp/products/*
+// @match        https://nagano-market.jp/collections/*/products/*
+// @match        https://nagano-market.jp/cart
 // @grant        none
 // ==/UserScript==
 
