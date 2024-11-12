@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-12
+// @version      2024-11-13
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -15,7 +15,10 @@
 
 const ATTEMPT = 1;
 const INTERVAL = 500;
-const MAX_QUANTITY = 20000;
+const LEFT_BEGIN = 0;
+const RIGHT_BEGIN = 10000;
+const THRESHOLD = 100;
+const THRESHOLD_PRECISION = 100;
 
 (async function () {
   "use strict";
@@ -95,27 +98,39 @@ const MAX_QUANTITY = 20000;
   }
 
   // Check storage using binary searching.
-  let left = 0;
-  let right = MAX_QUANTITY + 1;
+  label.textContent = `${text} (🔄)`;
+  let left = LEFT_BEGIN;
+  let right = RIGHT_BEGIN;
   let quantity = 0;
-  while (left <= right) {
-    const mid = Math.floor(left + (right - left) / 2);
-    label.textContent = `${text} (🔄 ${left}→${right})`;
+  let precision = 1;
+  while (left <= right && right - left >= precision) {
+    let mid = Math.floor((left + (right - left) / 2) / precision) * precision;
+    if (left == LEFT_BEGIN && right == RIGHT_BEGIN) {
+      // Begin from 100.
+      mid = THRESHOLD;
+    }
+
     const res = await check(id, productId, mid);
     if (res == 200) {
+      if (left == LEFT_BEGIN && right == RIGHT_BEGIN) {
+        // If the quantity is larger than 100, we will only get an approximation to accelerate the process.
+        precision = THRESHOLD_PRECISION;
+      }
       left = mid + 1;
       quantity = Math.max(quantity, mid);
+      label.textContent = `${text} (🔄 ≥${quantity})`;
     } else if (res == 422) {
       right = mid - 1;
+      label.textContent = `${text} (🔄 <${right + 1})`;
     } else {
       label.textContent = `${text} (🙁)`;
       return;
     }
   }
-  if (quantity >= MAX_QUANTITY + 1) {
-    label.textContent = `${text} (✅ ≥${MAX_QUANTITY})`;
-  } else {
+  if (precision == 1) {
     label.textContent = `${text} (✅ ${quantity})`;
+  } else {
+    label.textContent = `${text} (✅ ≥${quantity})`;
   }
 
   // Clean up.
