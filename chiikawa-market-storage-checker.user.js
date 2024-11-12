@@ -13,13 +13,18 @@
 // @grant        none
 // ==/UserScript==
 
-const ATTEMPT = 3;
-const INTERVAL = 1000;
+const ATTEMPT = 1;
+const INTERVAL = 500;
 const MAX_QUANTITY = 20000;
 
 (async function () {
   "use strict";
 
+  const sleep = async (ms) => {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  };
   const clearCart = async () => {
     return await fetch("/cart/clear", {
       headers: {
@@ -36,6 +41,8 @@ const MAX_QUANTITY = 20000;
       // Check for multiple times to reduce uncertainties caused by network or WAF.
       let res;
       for (let i = 0; i < ATTEMPT; i++) {
+        // Add delay to avoid potential DDoS.
+        await sleep(INTERVAL);
         // Attempt to add items with the given quantity to cart.
         res = await fetch("/cart/add.js", {
           headers: {
