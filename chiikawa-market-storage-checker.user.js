@@ -29,24 +29,24 @@ const THRESHOLD_PRECISION = 100;
       setTimeout(resolve, ms);
     });
   };
-  const getCartLine = async (id) => {
+  const removeItem = async (id) => {
     const res = await fetch("/cart.js", {
       headers: {
         accept: "*/*",
       },
     });
     const data = await res.json();
-    return data?.["items"]?.findIndex((e) => e?.["id"] == id) + 1;
-  };
-  const removeItem = async (line) => {
-    return await fetch("/cart/change.js", {
-      headers: {
-        accept: "*/*",
-        "content-type": "application/json",
-      },
-      method: "POST",
-      body: `{"line":${line},"quantity":0}`,
-    });
+    const line = data?.["items"]?.findIndex((e) => e?.["id"] == id) + 1;
+    if (line) {
+      await fetch("/cart/change.js", {
+        headers: {
+          accept: "*/*",
+          "content-type": "application/json",
+        },
+        method: "POST",
+        body: `{"line":${line},"quantity":0}`,
+      });
+    }
   };
   const check = async (id, productId, quantity) => {
     try {
@@ -54,10 +54,7 @@ const THRESHOLD_PRECISION = 100;
       await sleep(INTERVAL);
 
       // Remove items from the cart.
-      const line = await getCartLine(id);
-      if (line) {
-        await removeItem(line);
-      }
+      await removeItem(id);
 
       // Attempt to add items with the given quantity to cart.
       const res = await fetch("/cart/add.js", {
@@ -100,7 +97,7 @@ const THRESHOLD_PRECISION = 100;
   // Alert for incognito mode since we will clear the cart for checking.
   if (
     !window.confirm(
-      "此脚本将通过模拟将商品加入购物车以检测库存。\nThe script will check inventory by simulating adding items to the cart.\n\n检测库存中将会自动清空购物车，推荐使用无痕浏览运行该脚本。\nChecking inventory will automatically clear your cart. It is recommended to use incognito mode to run the script.\n\n商店的翻译功能可能导致脚本失效，请切换到日语并继续。\nThe translation feature of the store may cause the script to fail. Please switch to Japanese and continue."
+      "此脚本将通过模拟将商品加入购物车以检测库存。\nThe script will check inventory by simulating adding items to the cart.\n\n检测库存将影响此商品在购物车中的件数，推荐使用无痕窗口运行该脚本。\nChecking inventory will affect the quantity of this item in the shopping cart. It is recommended to use incognito mode to run the script."
     )
   ) {
     return;
@@ -143,8 +140,5 @@ const THRESHOLD_PRECISION = 100;
   }
 
   // Clean up.
-  const line = await getCartLine(id);
-  if (line) {
-    await removeItem(line);
-  }
+  await removeItem(id);
 })();
