@@ -63,20 +63,51 @@ const THRESHOLD_PRECISION = 100;
     return 0;
   };
 
-  const check = async (id, productId, quantity) => {
-    try {
-      // Add delay to avoid potential DDoS.
-      await sleep(INTERVAL);
+  const check = async (id, productId, fn) => {
+    // Check storage using binary searching.
+    let left = LEFT_BEGIN;
+    let right = RIGHT_BEGIN;
+    let quantity = 0;
+    let precision = 1;
+    while (left <= right && right - left >= precision) {
+      let mid = Math.floor((left + (right - left) / 2) / precision) * precision;
+      if (left == LEFT_BEGIN && right == RIGHT_BEGIN) {
+        // Begin from 100.
+        mid = THRESHOLD;
+      }
 
-      // Attempt to add items with the given quantity to cart.
-      const res = await addItem(id, productId, quantity);
+      let res = -1;
+      try {
+        // Add delay to avoid potential DDoS.
+        await sleep(INTERVAL);
 
-      // Remove items from the cart.
-      await removeItem(id);
+        // Attempt to add items with the given quantity to cart.
+        res = await addItem(id, productId, quantity);
 
-      return res;
-    } catch {
-      return -1;
+        // Remove items from the cart.
+        await removeItem(id);
+      } catch {}
+
+      if (res == 200) {
+        if (left == LEFT_BEGIN && right == RIGHT_BEGIN) {
+          // If the quantity is larger than 100, we will only get an approximation to accelerate the process.
+          precision = THRESHOLD_PRECISION;
+        }
+        left = mid + 1;
+        quantity = Math.max(quantity, mid);
+        fn(`🔄 ≥${quantity}`);
+      } else if (res == 422) {
+        right = mid - 1;
+        fn(`🔄 <${right + 1}`);
+      } else {
+        fn("🙁");
+        return;
+      }
+    }
+    if (precision == 1) {
+      fn(`✅ ${quantity}`);
+    } else {
+      fn(`✅ ≥${quantity}`);
     }
   };
 
@@ -117,41 +148,11 @@ const THRESHOLD_PRECISION = 100;
     currentQuantity = await removeItem(id);
   } catch {}
 
-  // Check storage using binary searching.
+  // Check storage.
   label.textContent = `${text} (🔄)`;
-  let left = LEFT_BEGIN;
-  let right = RIGHT_BEGIN;
-  let quantity = 0;
-  let precision = 1;
-  while (left <= right && right - left >= precision) {
-    let mid = Math.floor((left + (right - left) / 2) / precision) * precision;
-    if (left == LEFT_BEGIN && right == RIGHT_BEGIN) {
-      // Begin from 100.
-      mid = THRESHOLD;
-    }
-
-    const res = await check(id, productId, mid);
-    if (res == 200) {
-      if (left == LEFT_BEGIN && right == RIGHT_BEGIN) {
-        // If the quantity is larger than 100, we will only get an approximation to accelerate the process.
-        precision = THRESHOLD_PRECISION;
-      }
-      left = mid + 1;
-      quantity = Math.max(quantity, mid);
-      label.textContent = `${text} (🔄 ≥${quantity})`;
-    } else if (res == 422) {
-      right = mid - 1;
-      label.textContent = `${text} (🔄 <${right + 1})`;
-    } else {
-      label.textContent = `${text} (🙁)`;
-      return;
-    }
-  }
-  if (precision == 1) {
-    label.textContent = `${text} (✅ ${quantity})`;
-  } else {
-    label.textContent = `${text} (✅ ≥${quantity})`;
-  }
+  await check(id, productId, (t) => {
+    label.textContent = `${text} (${t})`;
+  });
 
   // Recover the cart.
   if (currentQuantity) {
