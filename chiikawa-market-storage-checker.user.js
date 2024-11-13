@@ -13,7 +13,6 @@
 // @grant        none
 // ==/UserScript==
 
-const ATTEMPT = 1;
 const INTERVAL = 500;
 const LEFT_BEGIN = 0;
 const RIGHT_BEGIN = 10000;
@@ -28,38 +27,46 @@ const THRESHOLD_PRECISION = 100;
       setTimeout(resolve, ms);
     });
   };
-  const clearCart = async () => {
-    return await fetch("/cart/clear", {
+  const getCartLine = async (id) => {
+    const res = await fetch("/cart.js", {
+      headers: {
+        accept: "*/*",
+      },
+    });
+    const data = await res.json();
+    return data?.["items"]?.findIndex((e) => e?.["id"] == id) + 1;
+  };
+  const removeItem = async (line) => {
+    return await fetch("/cart/change.js", {
       headers: {
         accept: "*/*",
         "content-type": "application/json",
       },
       method: "POST",
+      body: `{"line":${line},"quantity":0}`,
     });
   };
   const check = async (id, productId, quantity) => {
     try {
-      // Clear cart.
-      await clearCart();
-      // Check for multiple times to reduce uncertainties caused by network or WAF.
-      let res;
-      for (let i = 0; i < ATTEMPT; i++) {
-        // Add delay to avoid potential DDoS.
-        await sleep(INTERVAL);
-        // Attempt to add items with the given quantity to cart.
-        res = await fetch("/cart/add.js", {
-          headers: {
-            accept: "application/javascript",
-            "content-type": "multipart/form-data; boundary=----WebKitFormBoundary788zedotmtSec399",
-            "x-requested-with": "XMLHttpRequest",
-          },
-          body: `------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="form_type"\r\n\r\nproduct\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="utf8"\r\n\r\n✓\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="id"\r\n\r\n${id}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="quantity"\r\n\r\n${quantity}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="product-id"\r\n\r\n${productId}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="section-id"\r\n\r\ntemplate--18391309091057__main\r\n------WebKitFormBoundary788zedotmtSec399--\r\n`,
-          method: "POST",
-        });
-        if (res.status == 200) {
-          return 200;
-        }
+      // Add delay to avoid potential DDoS.
+      await sleep(INTERVAL);
+
+      // Remove items from the cart.
+      const line = await getCartLine(id);
+      if (line) {
+        await removeItem(line);
       }
+
+      // Attempt to add items with the given quantity to cart.
+      const res = await fetch("/cart/add.js", {
+        headers: {
+          accept: "application/javascript",
+          "content-type": "multipart/form-data; boundary=----WebKitFormBoundary788zedotmtSec399",
+          "x-requested-with": "XMLHttpRequest",
+        },
+        method: "POST",
+        body: `------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="form_type"\r\n\r\nproduct\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="utf8"\r\n\r\n✓\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="id"\r\n\r\n${id}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="quantity"\r\n\r\n${quantity}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="product-id"\r\n\r\n${productId}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="section-id"\r\n\r\ntemplate--18391309091057__main\r\n------WebKitFormBoundary788zedotmtSec399--\r\n`,
+      });
       return res.status;
     } catch {
       return -1;
@@ -134,5 +141,8 @@ const THRESHOLD_PRECISION = 100;
   }
 
   // Clean up.
-  await clearCart();
+  const line = await getCartLine(id);
+  if (line) {
+    await removeItem(line);
+  }
 })();
