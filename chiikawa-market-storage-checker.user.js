@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-13
+// @version      2024-11-13+1
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -29,6 +29,18 @@ const THRESHOLD_PRECISION = 100;
       setTimeout(resolve, ms);
     });
   };
+  const addItem = async (id, productId, quantity) => {
+    const res = await fetch("/cart/add.js", {
+      headers: {
+        accept: "application/javascript",
+        "content-type": "multipart/form-data; boundary=----WebKitFormBoundary788zedotmtSec399",
+        "x-requested-with": "XMLHttpRequest",
+      },
+      method: "POST",
+      body: `------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="form_type"\r\n\r\nproduct\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="utf8"\r\n\r\n✓\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="id"\r\n\r\n${id}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="quantity"\r\n\r\n${quantity}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="product-id"\r\n\r\n${productId}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="section-id"\r\n\r\ntemplate--18391309091057__main\r\n------WebKitFormBoundary788zedotmtSec399--\r\n`,
+    });
+    return res.status;
+  };
   const removeItem = async (id) => {
     const res = await fetch("/cart.js", {
       headers: {
@@ -36,43 +48,39 @@ const THRESHOLD_PRECISION = 100;
       },
     });
     const data = await res.json();
-    const line = data?.["items"]?.findIndex((e) => e?.["id"] == id) + 1;
-    if (line) {
+    const index = data?.["items"]?.findIndex((e) => e?.["id"] == id);
+    if (index >= 0) {
       await fetch("/cart/change.js", {
         headers: {
           accept: "*/*",
           "content-type": "application/json",
         },
         method: "POST",
-        body: `{"line":${line},"quantity":0}`,
+        body: `{"line":${index + 1},"quantity":0}`,
       });
+      return data["items"][index]?.["quantity"] ?? 0;
     }
+    return 0;
   };
+
   const check = async (id, productId, quantity) => {
     try {
       // Add delay to avoid potential DDoS.
       await sleep(INTERVAL);
 
+      // Attempt to add items with the given quantity to cart.
+      const res = await addItem(id, productId, quantity);
+
       // Remove items from the cart.
       await removeItem(id);
 
-      // Attempt to add items with the given quantity to cart.
-      const res = await fetch("/cart/add.js", {
-        headers: {
-          accept: "application/javascript",
-          "content-type": "multipart/form-data; boundary=----WebKitFormBoundary788zedotmtSec399",
-          "x-requested-with": "XMLHttpRequest",
-        },
-        method: "POST",
-        body: `------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="form_type"\r\n\r\nproduct\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="utf8"\r\n\r\n✓\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="id"\r\n\r\n${id}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="quantity"\r\n\r\n${quantity}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="product-id"\r\n\r\n${productId}\r\n------WebKitFormBoundary788zedotmtSec399\r\nContent-Disposition: form-data; name="section-id"\r\n\r\ntemplate--18391309091057__main\r\n------WebKitFormBoundary788zedotmtSec399--\r\n`,
-      });
-      return res.status;
+      return res;
     } catch {
       return -1;
     }
   };
 
-  // Make sure label is valid.
+  // Make sure the label is valid.
   const label = document.getElementsByClassName("product-page--title")?.[0];
   if (!label) {
     return;
@@ -94,14 +102,20 @@ const THRESHOLD_PRECISION = 100;
     return;
   }
 
-  // Alert for incognito mode since we will clear the cart for checking.
+  // Alert for incognito mode since we will change the cart for checking.
   if (
     !window.confirm(
-      "此脚本将通过模拟将商品加入购物车以检测库存。\nThe script will check inventory by simulating adding items to the cart.\n\n检测库存将影响此商品在购物车中的件数，推荐使用无痕窗口运行该脚本。\nChecking inventory will affect the quantity of this item in the shopping cart. It is recommended to use incognito mode to run the script."
+      "此脚本将通过模拟将商品加入购物车以检测库存。\nThe script will check inventory by simulating adding items to the cart.\n\n检测库存将改变此商品在购物车中的件数，推荐使用无痕窗口运行该脚本。\nChecking inventory will change the quantity of this item in the shopping cart. It is recommended to use incognito mode to run the script."
     )
   ) {
     return;
   }
+
+  // Get current quantity.
+  let currentQuantity = 0;
+  try {
+    currentQuantity = await removeItem(id);
+  } catch {}
 
   // Check storage using binary searching.
   label.textContent = `${text} (🔄)`;
@@ -139,6 +153,8 @@ const THRESHOLD_PRECISION = 100;
     label.textContent = `${text} (✅ ≥${quantity})`;
   }
 
-  // Clean up.
-  await removeItem(id);
+  // Recover the cart.
+  if (currentQuantity) {
+    await addItem(id, productId, currentQuantity);
+  }
 })();
