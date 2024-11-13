@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-13+4
+// @version      2024-11-13+5
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -229,7 +229,7 @@ const THRESHOLD_PRECISION = 100;
     return link;
   };
 
-  if (document.location.pathname === "/cart") {
+  if (document.location.pathname.endsWith("/cart")) {
     // Cart.
     for (const title of document.getElementsByClassName("cart--title")) {
       const link = createLink();
