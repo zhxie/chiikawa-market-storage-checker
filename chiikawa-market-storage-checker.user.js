@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-13+1
+// @version      2024-11-13+2
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -118,17 +118,7 @@ const THRESHOLD_PRECISION = 100;
     }
   };
 
-  // Alert for incognito mode since we will change the cart for checking.
-  if (
-    !window.confirm(
-      "此脚本将通过模拟将商品加入购物车以检测库存。\nThe script will check inventory by simulating adding items to the cart.\n\n检测库存将改变此商品在购物车中的件数，推荐使用无痕窗口运行该脚本。\nChecking inventory will change the quantity of this item in the shopping cart. It is recommended to use incognito mode to run the script."
-    )
-  ) {
-    return;
-  }
-
-  if (document.location.pathname === "/cart") {
-    // Cart.
+  const checkCart = async () => {
     // Get current cart.
     let currentItems;
     try {
@@ -177,8 +167,8 @@ const THRESHOLD_PRECISION = 100;
         } catch {}
       }
     }
-  } else {
-    // Product.
+  };
+  const checkProduct = async () => {
     // Make sure the label is valid.
     const label = document.getElementsByClassName("product-page--title")?.[0];
     if (!label) {
@@ -219,5 +209,38 @@ const THRESHOLD_PRECISION = 100;
         await addItem(id, productId, currentQuantity);
       } catch {}
     }
+  };
+
+  const link = document.createElement("a");
+  link.href = "#";
+  link.textContent = "检查库存";
+  link.style.color = "var(--bg-color--button)";
+  link.style.marginLeft = "8px";
+  link.style.textDecoration = "underline";
+
+  if (document.location.pathname === "/cart") {
+    // Cart.
+    const title = document.getElementsByClassName("cart--title")?.[0];
+    if (!title) {
+      return;
+    }
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      title.removeChild(link);
+      checkCart();
+    });
+    title.appendChild(link);
+  } else {
+    // Product.
+    const title = document.getElementsByClassName("product-page--title")?.[0];
+    if (!title) {
+      return;
+    }
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      title.removeChild(link);
+      checkProduct();
+    });
+    title.appendChild(link);
   }
 })();
