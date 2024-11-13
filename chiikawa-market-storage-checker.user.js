@@ -8,10 +8,13 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=chiikawamarket.jp
 // @match        https://chiikawamarket.jp/products/*
 // @match        https://chiikawamarket.jp/collections/*/products/*
+// @match        https://chiikawamarket.jp/cart
 // @match        https://nagano-market.jp/products/*
 // @match        https://nagano-market.jp/*/products/*
 // @match        https://nagano-market.jp/collections/*/products/*
 // @match        https://nagano-market.jp/*/collections/*/products/*
+// @match        https://nagano-market.jp/cart
+// @match        https://nagano-market.jp/*/cart
 // @grant        none
 // ==/UserScript==
 
@@ -29,6 +32,15 @@ const THRESHOLD_PRECISION = 100;
       setTimeout(resolve, ms);
     });
   };
+  const getCart = async () => {
+    const res = await fetch("/cart.js", {
+      headers: {
+        accept: "*/*",
+      },
+    });
+    const data = await res.json();
+    return data?.["items"];
+  };
   const addItem = async (id, productId, quantity) => {
     const res = await fetch("/cart/add.js", {
       headers: {
@@ -42,13 +54,8 @@ const THRESHOLD_PRECISION = 100;
     return res.status;
   };
   const removeItem = async (id) => {
-    const res = await fetch("/cart.js", {
-      headers: {
-        accept: "*/*",
-      },
-    });
-    const data = await res.json();
-    const index = data?.["items"]?.findIndex((e) => e?.["id"] == id);
+    const items = await getCart();
+    const index = items?.findIndex((e) => e?.["id"] == id);
     if (index >= 0) {
       await fetch("/cart/change.js", {
         headers: {
@@ -58,7 +65,7 @@ const THRESHOLD_PRECISION = 100;
         method: "POST",
         body: `{"line":${index + 1},"quantity":0}`,
       });
-      return data["items"][index]?.["quantity"] ?? 0;
+      return items[index]?.["quantity"] ?? 0;
     }
     return 0;
   };
@@ -111,28 +118,6 @@ const THRESHOLD_PRECISION = 100;
     }
   };
 
-  // Make sure the label is valid.
-  const label = document.getElementsByClassName("product-page--title")?.[0];
-  if (!label) {
-    return;
-  }
-  const text = label.textContent;
-
-  // Get product ID and ID for storage checking.
-  const sku = document.querySelector("div.product-form--root")?.getAttribute("data-handle");
-  const productId = document.querySelector('input[name="product-id"]')?.getAttribute("value");
-  if (!sku || !productId) {
-    return;
-  }
-  let id = document.querySelector(`option[data-sku="${sku}"]`)?.getAttribute("value");
-  if (!id) {
-    // Nagano Market.
-    id = document.querySelector(`option[data-sku="N${sku}"]`)?.getAttribute("value");
-  }
-  if (!id) {
-    return;
-  }
-
   // Alert for incognito mode since we will change the cart for checking.
   if (
     !window.confirm(
@@ -142,20 +127,97 @@ const THRESHOLD_PRECISION = 100;
     return;
   }
 
-  // Get current quantity.
-  let currentQuantity = 0;
-  try {
-    currentQuantity = await removeItem(id);
-  } catch {}
+  if (document.location.pathname === "/cart") {
+    // Cart.
+    // Get current cart.
+    let currentItems;
+    try {
+      currentItems = await getCart();
+    } catch {}
+    if (!currentItems) {
+      return;
+    }
 
-  // Check storage.
-  label.textContent = `${text} (🔄)`;
-  await check(id, productId, (t) => {
-    label.textContent = `${text} (${t})`;
-  });
+    for (const item of document.getElementsByClassName("cart--item")) {
+      // Escape invisible items.
+      if (item.getElementsByClassName("cart--item--info").length > 0) {
+        continue;
+      }
 
-  // Recover the cart.
-  if (currentQuantity) {
-    await addItem(id, productId, currentQuantity);
+      // Make sure the label is valid.
+      const label = item.getElementsByClassName("cart--item--title")?.[0]?.children?.[0]?.children?.[0];
+      if (!label) {
+        continue;
+      }
+      const text = label.textContent;
+
+      // Get product ID and ID for storage checking.
+      const id = item.getAttribute("data-variant-id");
+      if (!id) {
+        continue;
+      }
+      const productId = currentItems.find((e) => e?.["id"] == id)?.["product_id"];
+      if (!productId) {
+        continue;
+      }
+
+      // Get current quantity.
+      let currentQuantity = currentItems.find((e) => e?.["id"] == id)?.["quantity"] ?? 0;
+
+      // Check storage.
+      label.textContent = `${text} (🔄)`;
+      await check(id, productId, (t) => {
+        label.textContent = `${text} (${t})`;
+      });
+
+      // Recover the cart.
+      if (currentQuantity) {
+        try {
+          await addItem(id, productId, currentQuantity);
+        } catch {}
+      }
+    }
+  } else {
+    // Product.
+    // Make sure the label is valid.
+    const label = document.getElementsByClassName("product-page--title")?.[0];
+    if (!label) {
+      return;
+    }
+    const text = label.textContent;
+
+    // Get product ID and ID for storage checking.
+    const sku = document.querySelector("div.product-form--root")?.getAttribute("data-handle");
+    const productId = document.querySelector('input[name="product-id"]')?.getAttribute("value");
+    if (!sku || !productId) {
+      return;
+    }
+    let id = document.querySelector(`option[data-sku="${sku}"]`)?.getAttribute("value");
+    if (!id) {
+      // Nagano Market.
+      id = document.querySelector(`option[data-sku="N${sku}"]`)?.getAttribute("value");
+    }
+    if (!id) {
+      return;
+    }
+
+    // Get current quantity.
+    let currentQuantity = 0;
+    try {
+      currentQuantity = await removeItem(id);
+    } catch {}
+
+    // Check storage.
+    label.textContent = `${text} (🔄)`;
+    await check(id, productId, (t) => {
+      label.textContent = `${text} (${t})`;
+    });
+
+    // Recover the cart.
+    if (currentQuantity) {
+      try {
+        await addItem(id, productId, currentQuantity);
+      } catch {}
+    }
   }
 })();
