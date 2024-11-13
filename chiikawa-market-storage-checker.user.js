@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-13+2
+// @version      2024-11-13+3
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -89,7 +89,7 @@ const THRESHOLD_PRECISION = 100;
         await sleep(INTERVAL);
 
         // Attempt to add items with the given quantity to cart.
-        res = await addItem(id, productId, quantity);
+        res = await addItem(id, productId, mid);
 
         // Remove items from the cart.
         await removeItem(id);
