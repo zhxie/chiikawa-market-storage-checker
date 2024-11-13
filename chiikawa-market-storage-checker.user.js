@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-13+3
+// @version      2024-11-13+4
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -128,21 +128,19 @@ const THRESHOLD_PRECISION = 100;
       return;
     }
 
-    for (const item of document.getElementsByClassName("cart--item")) {
-      // Escape invisible items.
-      if (item.getElementsByClassName("cart--item--info").length > 0) {
-        continue;
-      }
-
+    const items = document.getElementsByClassName("cart--item");
+    for (let i = 0; i < items.length / 2; i++) {
       // Make sure the label is valid.
-      const label = item.getElementsByClassName("cart--item--title")?.[0]?.children?.[0]?.children?.[0];
-      if (!label) {
+      const label1 = items[i].getElementsByClassName("cart--item--title")?.[0]?.children?.[0]?.children?.[0];
+      const label2 = items[i + items.length / 2].getElementsByClassName("cart--item--title")?.[0]?.children?.[0]?.children?.[0];
+      if (!label1 || !label2) {
         continue;
       }
-      const text = label.textContent;
+      const text1 = label1.textContent;
+      const text2 = label2.textContent;
 
       // Get product ID and ID for storage checking.
-      const id = item.getAttribute("data-variant-id");
+      const id = items[i].getAttribute("data-variant-id");
       if (!id) {
         continue;
       }
@@ -155,9 +153,11 @@ const THRESHOLD_PRECISION = 100;
       let currentQuantity = currentItems.find((e) => e?.["id"] == id)?.["quantity"] ?? 0;
 
       // Check storage.
-      label.textContent = `${text} (🔄)`;
+      label1.textContent = `${text1} (🔄)`;
+      label2.textContent = `${text2} (🔄)`;
       await check(id, productId, (t) => {
-        label.textContent = `${text} (${t})`;
+        label1.textContent = `${text1} (${t})`;
+        label2.textContent = `${text2} (${t})`;
       });
 
       // Recover the cart.
@@ -211,34 +211,41 @@ const THRESHOLD_PRECISION = 100;
     }
   };
 
-  const link = document.createElement("a");
-  link.href = "#";
-  link.textContent = "检查库存";
-  link.style.color = "var(--bg-color--button)";
-  link.style.marginLeft = "8px";
-  link.style.textDecoration = "underline";
+  const links = [];
+  const createLink = () => {
+    const link = document.createElement("a");
+    link.href = "#";
+    link.textContent = "检查库存";
+    link.style.color = "var(--bg-color--button)";
+    link.style.marginLeft = "8px";
+    link.style.textDecoration = "underline";
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      for (const link of links) {
+        link.remove();
+      }
+    });
+    links.push(link);
+    return link;
+  };
 
   if (document.location.pathname === "/cart") {
     // Cart.
-    const title = document.getElementsByClassName("cart--title")?.[0];
-    if (!title) {
-      return;
+    for (const title of document.getElementsByClassName("cart--title")) {
+      const link = createLink();
+      link.addEventListener("click", () => {
+        checkCart();
+      });
+      title.appendChild(link);
     }
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      title.removeChild(link);
-      checkCart();
-    });
-    title.appendChild(link);
   } else {
     // Product.
     const title = document.getElementsByClassName("product-page--title")?.[0];
     if (!title) {
       return;
     }
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      title.removeChild(link);
+    const link = createLink();
+    link.addEventListener("click", () => {
       checkProduct();
     });
     title.appendChild(link);
