@@ -39,7 +39,7 @@ const THRESHOLD_PRECISION = 100;
       },
     });
     const data = await res.json();
-    return data?.["items"];
+    return data?.items;
   };
   const addItem = async (id, productId, quantity) => {
     const res = await fetch("/cart/add.js", {
@@ -55,7 +55,7 @@ const THRESHOLD_PRECISION = 100;
   };
   const removeItem = async (id) => {
     const items = await getCart();
-    const index = items?.findIndex((e) => e?.["id"] == id);
+    const index = items?.findIndex((e) => e?.id == id);
     if (index >= 0) {
       await fetch("/cart/change.js", {
         headers: {
@@ -65,7 +65,7 @@ const THRESHOLD_PRECISION = 100;
         method: "POST",
         body: `{"line":${index + 1},"quantity":0}`,
       });
-      return items[index]?.["quantity"] ?? 0;
+      return items[index]?.quantity ?? 0;
     }
     return 0;
   };
@@ -144,13 +144,13 @@ const THRESHOLD_PRECISION = 100;
       if (!id) {
         continue;
       }
-      const productId = currentItems.find((e) => e?.["id"] == id)?.["product_id"];
+      const productId = currentItems.find((e) => e?.id == id)?.product_id;
       if (!productId) {
         continue;
       }
 
       // Get current quantity.
-      let currentQuantity = currentItems.find((e) => e?.["id"] == id)?.["quantity"] ?? 0;
+      let currentQuantity = currentItems.find((e) => e?.id == id)?.quantity ?? 0;
 
       // Check storage.
       label1.textContent = `${text1} (🔄)`;
@@ -177,17 +177,9 @@ const THRESHOLD_PRECISION = 100;
     const text = label.textContent;
 
     // Get product ID and ID for storage checking.
-    const sku = document.querySelector("div.product-form--root")?.getAttribute("data-handle");
-    const productId = document.querySelector('input[name="product-id"]')?.getAttribute("value");
-    if (!sku || !productId) {
-      return;
-    }
-    let id = document.querySelector(`option[data-sku="${sku}"]`)?.getAttribute("value");
-    if (!id) {
-      // Nagano Market.
-      id = document.querySelector(`option[data-sku="N${sku}"]`)?.getAttribute("value");
-    }
-    if (!id) {
+    const productId = window.ShopifyAnalytics?.meta?.product?.id;
+    const id = window.ShopifyAnalytics?.meta?.product?.variants?.[0]?.id;
+    if (!productId || !id) {
       return;
     }
 
