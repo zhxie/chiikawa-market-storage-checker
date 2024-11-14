@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-13+5
+// @version      2024-11-15
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -15,6 +15,8 @@
 // @match        https://nagano-market.jp/*/collections/*/products/*
 // @match        https://nagano-market.jp/cart
 // @match        https://nagano-market.jp/*/cart
+// @match        https://chiikawamogumogu.shop/products/*
+// @match        https://chiikawamogumogu.shop/collections/*/products/*
 // @grant        none
 // ==/UserScript==
 
@@ -170,7 +172,10 @@ const THRESHOLD_PRECISION = 100;
   };
   const checkProduct = async () => {
     // Make sure the label is valid.
-    const label = document.getElementsByClassName("product-page--title")?.[0];
+    let label = document.getElementsByClassName("product-page--title")?.[0];
+    if (!label) {
+      label = document.getElementsByClassName("product__title")?.[0].children?.[0];
+    }
     if (!label) {
       return;
     }
@@ -208,6 +213,7 @@ const THRESHOLD_PRECISION = 100;
     const link = document.createElement("a");
     link.href = "#";
     link.textContent = "检查库存";
+    // TODO: this color does not apply to Chiikawa Mogumogu Honpo Online Store.
     link.style.color = "var(--bg-color--button)";
     link.style.marginLeft = "8px";
     link.style.textDecoration = "underline";
@@ -232,7 +238,10 @@ const THRESHOLD_PRECISION = 100;
     }
   } else {
     // Product.
-    const title = document.getElementsByClassName("product-page--title")?.[0];
+    let title = document.getElementsByClassName("product-page--title")?.[0];
+    if (!title) {
+      title = document.getElementsByClassName("product__title")?.[0].children?.[0];
+    }
     if (!title) {
       return;
     }
