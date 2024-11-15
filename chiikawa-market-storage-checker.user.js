@@ -182,8 +182,12 @@ const THRESHOLD_PRECISION = 100;
     const text = label.textContent;
 
     // Get product ID and ID for storage checking.
-    const productId = window.ShopifyAnalytics?.meta?.product?.id;
-    const id = window.ShopifyAnalytics?.meta?.product?.variants?.[0]?.id;
+    const productId = document.querySelector('input[name="product-id"]')?.getAttribute("value");
+    let id = document.getElementsByClassName("product-form--variant-select")?.[0]?.children?.[0]?.getAttribute("value");
+    if (!id) {
+      // Chiikawa Mogumogu Honpo Online Store.
+      id = document.getElementsByClassName("product__pickup-availabilities")?.[0]?.getAttribute("data-variant-id");
+    }
     if (!productId || !id) {
       return;
     }
@@ -240,7 +244,7 @@ const THRESHOLD_PRECISION = 100;
     // Product.
     let title = document.getElementsByClassName("product-page--title")?.[0];
     if (!title) {
-      title = document.getElementsByClassName("product__title")?.[0].children?.[0];
+      title = document.getElementsByClassName("product__title")?.[0]?.children?.[0];
     }
     if (!title) {
       return;
