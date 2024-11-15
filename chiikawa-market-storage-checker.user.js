@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-15
+// @version      2024-11-15+1
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -116,7 +116,7 @@ const THRESHOLD_PRECISION = 100;
     if (precision == 1) {
       fn(`✅ ${quantity}`);
     } else {
-      fn(`✅ ≥${quantity}`);
+      fn(`✅ ${quantity}+`);
     }
   };
 
