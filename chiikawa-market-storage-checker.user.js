@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-15+1
+// @version      2024-11-16
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -21,9 +21,8 @@
 // ==/UserScript==
 
 const INTERVAL = 500;
-const LEFT_BEGIN = 0;
-const RIGHT_BEGIN = 10000;
-const THRESHOLD = 100;
+const MAX_QUANTITY = 20000;
+const THRESHOLD_QUANTITY = 100;
 const THRESHOLD_PRECISION = 100;
 
 (async function () {
@@ -72,51 +71,65 @@ const THRESHOLD_PRECISION = 100;
     return 0;
   };
 
-  const check = async (id, productId, fn) => {
-    // Check storage using binary searching.
-    let left = LEFT_BEGIN;
-    let right = RIGHT_BEGIN;
-    let quantity = 0;
-    let precision = 1;
-    while (left <= right && right - left >= precision) {
-      let mid = Math.floor((left + (right - left) / 2) / precision) * precision;
-      if (left == LEFT_BEGIN && right == RIGHT_BEGIN) {
-        // Begin from 100.
-        mid = THRESHOLD;
-      }
+  const check = async (id, productId, currentQuantity, fn) => {
+    // Remove items from the cart.
+    await removeItem(id);
 
+    // Check storage using binary searching.
+    const set = new Set();
+    let quantity = 0;
+    let increment = THRESHOLD_QUANTITY;
+    let precision = 1;
+    let firstCheck = true;
+    while (increment >= precision && quantity < MAX_QUANTITY) {
       let res = -1;
       try {
         // Add delay to avoid potential DDoS.
         await sleep(INTERVAL);
 
         // Attempt to add items with the given quantity to cart.
-        res = await addItem(id, productId, mid);
-
-        // Remove items from the cart.
-        await removeItem(id);
+        res = await addItem(id, productId, increment);
       } catch {}
 
       if (res == 200) {
-        if (left == LEFT_BEGIN && right == RIGHT_BEGIN) {
-          // If the quantity is larger than 100, we will only get an approximation to accelerate the process.
+        fn(`🔄 ≥${quantity + increment}`);
+        quantity += increment;
+
+        // If the quantity is larger than the threshold, we will only get an approximation to accelerate the process.
+        if (firstCheck) {
+          increment = MAX_QUANTITY / 2;
           precision = THRESHOLD_PRECISION;
+          firstCheck = false;
         }
-        left = mid + 1;
-        quantity = Math.max(quantity, mid);
-        fn(`🔄 ≥${quantity}`);
+
+        // Shrink in advance since we have checked the next increment before.
+        while (set.has(quantity + increment)) {
+          increment = Math.floor(increment / 2 / precision) * precision;
+        }
       } else if (res == 422) {
-        right = mid - 1;
-        fn(`🔄 <${right + 1}`);
+        fn(`🔄 <${quantity + increment}`);
+        set.add(quantity + increment);
+        increment = Math.floor(increment / 2 / precision) * precision;
       } else {
         fn("🙁");
         return;
       }
     }
-    if (precision == 1) {
+    if (precision == 1 || quantity > MAX_QUANTITY) {
+      quantity = Math.min(quantity, MAX_QUANTITY);
       fn(`✅ ${quantity}`);
     } else {
       fn(`✅ ${quantity}+`);
+    }
+
+    // Clean up.
+    await removeItem(id);
+
+    // Recover the cart.
+    if (currentQuantity) {
+      try {
+        await addItem(id, productId, currentQuantity);
+      } catch {}
     }
   };
 
@@ -157,17 +170,10 @@ const THRESHOLD_PRECISION = 100;
       // Check storage.
       label1.textContent = `${text1} (🔄)`;
       label2.textContent = `${text2} (🔄)`;
-      await check(id, productId, (t) => {
+      await check(id, productId, currentQuantity, (t) => {
         label1.textContent = `${text1} (${t})`;
         label2.textContent = `${text2} (${t})`;
       });
-
-      // Recover the cart.
-      if (currentQuantity) {
-        try {
-          await addItem(id, productId, currentQuantity);
-        } catch {}
-      }
     }
   };
   const checkProduct = async () => {
@@ -200,16 +206,9 @@ const THRESHOLD_PRECISION = 100;
 
     // Check storage.
     label.textContent = `${text} (🔄)`;
-    await check(id, productId, (t) => {
+    await check(id, productId, currentQuantity, (t) => {
       label.textContent = `${text} (${t})`;
     });
-
-    // Recover the cart.
-    if (currentQuantity) {
-      try {
-        await addItem(id, productId, currentQuantity);
-      } catch {}
-    }
   };
 
   const links = [];
