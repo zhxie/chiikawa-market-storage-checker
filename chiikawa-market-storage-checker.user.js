@@ -20,19 +20,9 @@
 // @grant        none
 // ==/UserScript==
 
-const INTERVAL = 500;
-const MAX_QUANTITY = 20000;
-const THRESHOLD_QUANTITY = 100;
-const THRESHOLD_PRECISION = 100;
-
 (async function () {
   "use strict";
 
-  const sleep = async (ms) => {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
-  };
   const getCart = async () => {
     const res = await fetch("/cart.js", {
       headers: {
@@ -54,6 +44,14 @@ const THRESHOLD_PRECISION = 100;
     });
     return res.status;
   };
+  const getItem = async (id) => {
+    const items = await getCart();
+    const item = items?.find((e) => e?.id == id);
+    if (item) {
+      return item.quantity;
+    }
+    return -1;
+  };
   const removeItem = async (id) => {
     const items = await getCart();
     const index = items?.findIndex((e) => e?.id == id);
@@ -72,54 +70,19 @@ const THRESHOLD_PRECISION = 100;
   };
 
   const check = async (id, productId, currentQuantity, fn) => {
-    // Remove items from the cart.
+    fn("🔄");
+
     await removeItem(id);
 
-    // Check storage using binary searching.
-    const set = new Set();
-    let quantity = 0;
-    let increment = THRESHOLD_QUANTITY;
-    let precision = 1;
-    let firstCheck = true;
-    while (increment >= precision && quantity < MAX_QUANTITY) {
-      let res = -1;
-      try {
-        // Add delay to avoid potential DDoS.
-        await sleep(INTERVAL);
+    // Add to shopping cart as many as possible.
+    await addItem(id, productId, 100000);
 
-        // Attempt to add items with the given quantity to cart.
-        res = await addItem(id, productId, increment);
-      } catch {}
-
-      if (res == 200) {
-        fn(`🔄 ≥${quantity + increment}`);
-        quantity += increment;
-
-        // If the quantity is larger than the threshold, we will only get an approximation to accelerate the process.
-        if (firstCheck) {
-          increment = MAX_QUANTITY / 2;
-          precision = THRESHOLD_PRECISION;
-        }
-
-        // Shrink in advance since we have checked the next increment before.
-        while (set.has(quantity + increment)) {
-          increment = Math.floor(increment / 2 / precision) * precision;
-        }
-      } else if (res == 422) {
-        fn(`🔄 <${quantity + increment}`);
-        set.add(quantity + increment);
-        increment = Math.floor(increment / 2 / precision) * precision;
-      } else {
-        fn("🙁");
-        return;
-      }
-      firstCheck = false;
-    }
-    if (precision == 1 || quantity > MAX_QUANTITY) {
-      quantity = Math.min(quantity, MAX_QUANTITY);
+    // Get the quantity from the cart.
+    const quantity = await getItem(id);
+    if (quantity >= 0) {
       fn(`✅ ${quantity}`);
     } else {
-      fn(`✅ ${quantity}+`);
+      fn("🙁");
     }
 
     // Clean up.
