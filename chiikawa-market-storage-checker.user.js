@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chiikawa Market Storage Checker
 // @namespace    https://github.com/zhxie/chiikawa-market-storage-checker
-// @version      2024-11-16+1
+// @version      2025-01-10
 // @author       Xie Zhihao
 // @description  Check storage of products in Chiikawa market.
 // @homepage     https://github.com/zhxie/chiikawa-market-storage-checker
@@ -19,6 +19,8 @@
 // @match        https://chiikawamogumogu.shop/collections/*/products/*
 // @grant        none
 // ==/UserScript==
+
+const MAX_QUANTITY = 1000000;
 
 (async function () {
   "use strict";
@@ -70,12 +72,10 @@
   };
 
   const check = async (id, productId, currentQuantity, fn) => {
-    fn("🔄");
-
     await removeItem(id);
 
     // Add to shopping cart as many as possible.
-    await addItem(id, productId, 100000);
+    await addItem(id, productId, MAX_QUANTITY);
 
     // Get the quantity from the cart.
     const quantity = await getItem(id);
@@ -179,8 +179,7 @@
     const link = document.createElement("a");
     link.href = "#";
     link.textContent = "检查库存";
-    // TODO: this color does not apply to Chiikawa Mogumogu Honpo Online Store.
-    link.style.color = "var(--bg-color--button)";
+    link.style.color = "tomato";
     link.style.marginLeft = "8px";
     link.style.textDecoration = "underline";
     link.addEventListener("click", (e) => {
